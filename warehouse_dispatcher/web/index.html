@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Warehouse AMR Dispatcher</title>
+
+<script src="roslib.min.js"></script>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+}
+
+header {
+    padding: 22px 32px;
+    border-bottom: 1px solid #30363d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+h1 {
+    margin: 0;
+    font-size: 23px;
+}
+
+.connection {
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: #da3633;
+    font-size: 13px;
+}
+
+.connection.online {
+    background: #238636;
+}
+
+.container {
+    max-width: 1150px;
+    margin: auto;
+    padding: 28px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+}
+
+.card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.big-value {
+    font-size: 32px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.status-IDLE {
+    color: #8b949e;
+}
+
+.status-NAVIGATING {
+    color: #58a6ff;
+}
+
+.status-ARRIVED {
+    color: #3fb950;
+}
+
+.form {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+select,
+button {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: white;
+}
+
+button {
+    cursor: pointer;
+    background: #238636;
+    font-weight: bold;
+}
+
+button:hover {
+    opacity: 0.85;
+}
+
+button.red {
+    background: #da3633;
+}
+
+button.gray {
+    background: #30363d;
+}
+
+.section-title {
+    margin-top: 30px;
+    margin-bottom: 12px;
+    font-size: 18px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 11px;
+    border-bottom: 1px solid #30363d;
+    font-size: 14px;
+}
+
+th {
+    color: #8b949e;
+}
+
+.empty {
+    color: #8b949e;
+    padding: 15px 0;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.detail {
+    color: #8b949e;
+    margin-top: 8px;
+}
+
+@media(max-width:800px) {
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form {
+        grid-template-columns: 1fr;
+    }
+}
+
+</style>
+</head>
+
+
+<body>
+
+<header>
+
+<div>
+<h1>Warehouse AMR Dispatcher</h1>
+<div class="detail">ROS 2 Humble · Nav2</div>
+</div>
+
+<div id="connection" class="connection">
+DISCONNECTED
+</div>
+
+</header>
+
+
+<div class="container">
+
+<div class="grid">
+
+<div class="card">
+Robot Status
+<div id="robotStatus"
+     class="big-value status-IDLE">
+IDLE
+</div>
+<div id="detail" class="detail">
+Waiting for ROS...
+</div>
+</div>
+
+
+<div class="card">
+Distance Remaining
+<div id="distance"
+     class="big-value">
+-- m
+</div>
+</div>
+
+
+<div class="card">
+Current Mission
+<div id="mission"
+     class="big-value"
+     style="font-size:22px">
+None
+</div>
+</div>
+
+</div>
+
+
+<div class="section-title">
+Create Order
+</div>
+
+<div class="card">
+
+<div class="form">
+
+<select id="pickup">
+<option value="A">Pickup Station A</option>
+<option value="B">Pickup Station B</option>
+<option value="C">Pickup Station C</option>
+</select>
+
+<select id="drop">
+<option value="1">Drop Zone 1</option>
+<option value="2">Drop Zone 2</option>
+<option value="3">Drop Zone 3</option>
+</select>
+
+<button onclick="dispatchOrder()">
+Dispatch Robot
+</button>
+
+</div>
+
+<div class="controls">
+
+<button class="red"
+        onclick="cancelMission()">
+Cancel Current
+</button>
+
+<button class="gray"
+        onclick="clearQueue()">
+Clear Pending Queue
+</button>
+
+</div>
+
+</div>
+
+
+<div class="section-title">
+Mission Queue
+</div>
+
+<div class="card">
+
+<table>
+
+<thead>
+<tr>
+<th>Order</th>
+<th>Pickup</th>
+<th>Drop</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody id="queueBody">
+</tbody>
+
+</table>
+
+<div id="queueEmpty"
+     class="empty">
+Queue empty
+</div>
+
+</div>
+
+
+<div class="section-title">
+Mission History
+</div>
+
+<div class="card">
+
+<table>
+
+<thead>
+<tr>
+<th>Time</th>
+<th>Order</th>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody id="historyBody">
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
+<script>
+
+let ros;
+let commandTopic;
+
+function connectROS() {
+
+    const hostname =
+        window.location.hostname || "localhost";
+
+    ros = new ROSLIB.Ros({
+        url: `ws://${hostname}:9090`
+    });
+
+    const connection =
+        document.getElementById("connection");
+
+    ros.on("connection", function() {
+
+        connection.innerText = "ROS CONNECTED";
+        connection.classList.add("online");
+
+    });
+
+    ros.on("error", function(error) {
+
+        console.error(error);
+
+        connection.innerText = "ROS ERROR";
+        connection.classList.remove("online");
+
+    });
+
+    ros.on("close", function() {
+
+        connection.innerText = "DISCONNECTED";
+        connection.classList.remove("online");
+
+    });
+
+
+    commandTopic =
+        new ROSLIB.Topic({
+
+            ros: ros,
+
+            name:
+            "/warehouse_dispatcher/web/command",
+
+            messageType:
+            "std_msgs/msg/String"
+
+        });
+
+
+    const statusTopic =
+        new ROSLIB.Topic({
+
+            ros: ros,
+
+            name:
+            "/warehouse_dispatcher/web/status",
+
+            messageType:
+            "std_msgs/msg/String"
+
+        });
+
+
+    statusTopic.subscribe(function(message) {
+
+        const data =
+            JSON.parse(message.data);
+
+        const status =
+            document.getElementById(
+                "robotStatus"
+            );
+
+        status.innerText =
+            data.state;
+
+        status.className =
+            "big-value status-" +
+            data.state;
+
+        document.getElementById(
+            "detail"
+        ).innerText =
+            data.detail || "";
+
+        if (data.current) {
+
+            document.getElementById(
+                "mission"
+            ).innerText =
+                `#${data.current.id}  A${data.current.pickup} → Z${data.current.drop}`;
+
+        } else {
+
+            document.getElementById(
+                "mission"
+            ).innerText =
+                "None";
+        }
+
+    });
+
+
+    const distanceTopic =
+        new ROSLIB.Topic({
+
+            ros: ros,
+
+            name:
+            "/warehouse_dispatcher/web/distance",
+
+            messageType:
+            "std_msgs/msg/Float32"
+
+        });
+
+
+    distanceTopic.subscribe(function(message) {
+
+        if (message.data < 0) {
+
+            document.getElementById(
+                "distance"
+            ).innerText = "-- m";
+
+        } else {
+
+            document.getElementById(
+                "distance"
+            ).innerText =
+                message.data.toFixed(2)
+                + " m";
+        }
+
+    });
+
+
+    const queueTopic =
+        new ROSLIB.Topic({
+
+            ros: ros,
+
+            name:
+            "/warehouse_dispatcher/web/queue",
+
+            messageType:
+            "std_msgs/msg/String"
+
+        });
+
+
+    queueTopic.subscribe(function(message) {
+
+        const data =
+            JSON.parse(message.data);
+
+        renderQueue(data);
+
+    });
+
+
+    const historyTopic =
+        new ROSLIB.Topic({
+
+            ros: ros,
+
+            name:
+            "/warehouse_dispatcher/web/history",
+
+            messageType:
+            "std_msgs/msg/String"
+
+        });
+
+
+    historyTopic.subscribe(function(message) {
+
+        const data =
+            JSON.parse(message.data);
+
+        renderHistory(data);
+
+    });
+
+}
+
+
+function sendCommand(object) {
+
+    if (!commandTopic) {
+        return;
+    }
+
+    commandTopic.publish(
+
+        new ROSLIB.Message({
+
+            data:
+            JSON.stringify(object)
+
+        })
+
+    );
+
+}
+
+
+function dispatchOrder() {
+
+    const pickup =
+        document.getElementById(
+            "pickup"
+        ).value;
+
+    const drop =
+        document.getElementById(
+            "drop"
+        ).value;
+
+    sendCommand({
+
+        type: "enqueue",
+        pickup: pickup,
+        drop: drop
+
+    });
+
+}
+
+
+function cancelMission() {
+
+    sendCommand({
+        type: "cancel"
+    });
+
+}
+
+
+function clearQueue() {
+
+    sendCommand({
+        type: "clear_queue"
+    });
+
+}
+
+
+function renderQueue(data) {
+
+    const body =
+        document.getElementById(
+            "queueBody"
+        );
+
+    const empty =
+        document.getElementById(
+            "queueEmpty"
+        );
+
+    body.innerHTML = "";
+
+    let rows = [];
+
+    if (data.current) {
+
+        rows.push({
+            ...data.current,
+            state: "ACTIVE"
+        });
+
+    }
+
+    for (const order of data.pending) {
+
+        rows.push({
+            ...order,
+            state: "WAITING"
+        });
+
+    }
+
+    empty.style.display =
+        rows.length ? "none" : "block";
+
+
+    for (const order of rows) {
+
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>#${order.id}</td>
+            <td>Station ${order.pickup}</td>
+            <td>Zone ${order.drop}</td>
+            <td>${order.state}</td>
+        `;
+
+        body.appendChild(row);
+
+    }
+
+}
+
+
+function renderHistory(history) {
+
+    const body =
+        document.getElementById(
+            "historyBody"
+        );
+
+    body.innerHTML = "";
+
+    for (const item of history) {
+
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${item.time}</td>
+            <td>#${item.order}</td>
+            <td>${item.event}</td>
+            <td>${item.text}</td>
+        `;
+
+        body.appendChild(row);
+
+    }
+
+}
+
+
+connectROS();
+
+</script>
+
+</body>
+</html>
+

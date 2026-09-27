@@ -1,0 +1,223 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="arbotrix_bot">
+
+  <!-- =========================
+       BASE FRAMES
+       TF: odom -> base_footprint is published by Gazebo diff-drive.
+           base_footprint -> base_link -> sensors is published by robot_state_publisher.
+       ========================= -->
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+    <visual>
+      <geometry><cylinder radius="0.20" length="0.12"/></geometry>
+      <material name="body_blue"><color rgba="0.10 0.28 0.80 1.0"/></material>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.20" length="0.12"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="8.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.082" ixy="0" ixz="0" iyy="0.082" iyz="0" izz="0.160"/>
+    </inertial>
+  </link>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.10" rpy="0 0 0"/>
+  </joint>
+
+  <!-- =========================
+       DRIVE WHEELS
+       wheel separation = 0.30 m
+       wheel radius     = 0.05 m
+       ========================= -->
+  <link name="left_wheel_link">
+    <visual>
+      <origin rpy="1.57079632679 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.035"/></geometry>
+      <material name="wheel_black"><color rgba="0.05 0.05 0.05 1.0"/></material>
+    </visual>
+    <collision>
+      <origin rpy="1.57079632679 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.035"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.35"/>
+      <inertia ixx="0.00024" ixy="0" ixz="0" iyy="0.00044" iyz="0" izz="0.00024"/>
+    </inertial>
+  </link>
+
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel_link"/>
+    <origin xyz="0 0.15 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="right_wheel_link">
+    <visual>
+      <origin rpy="1.57079632679 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.035"/></geometry>
+      <material name="wheel_black"/>
+    </visual>
+    <collision>
+      <origin rpy="1.57079632679 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.035"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.35"/>
+      <inertia ixx="0.00024" ixy="0" ixz="0" iyy="0.00044" iyz="0" izz="0.00024"/>
+    </inertial>
+  </link>
+
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel_link"/>
+    <origin xyz="0 -0.15 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Passive contact points keep the round body stable in Gazebo. -->
+  <link name="front_caster_link">
+    <collision><geometry><sphere radius="0.02"/></geometry></collision>
+    <visual><geometry><sphere radius="0.02"/></geometry></visual>
+    <inertial><mass value="0.05"/><inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/></inertial>
+  </link>
+  <joint name="front_caster_joint" type="fixed">
+    <parent link="base_link"/><child link="front_caster_link"/>
+    <origin xyz="0.14 0 -0.08"/>
+  </joint>
+
+  <link name="rear_caster_link">
+    <collision><geometry><sphere radius="0.02"/></geometry></collision>
+    <visual><geometry><sphere radius="0.02"/></geometry></visual>
+    <inertial><mass value="0.05"/><inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/></inertial>
+  </link>
+  <joint name="rear_caster_joint" type="fixed">
+    <parent link="base_link"/><child link="rear_caster_link"/>
+    <origin xyz="-0.14 0 -0.08"/>
+  </joint>
+
+  <!-- =========================
+       360-degree LiDAR
+       ========================= -->
+  <link name="lidar_link">
+    <visual>
+      <geometry><cylinder radius="0.045" length="0.035"/></geometry>
+      <material name="lidar_dark"><color rgba="0.12 0.12 0.12 1"/></material>
+    </visual>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/><child link="lidar_link"/>
+    <origin xyz="0 0 0.12" rpy="0 0 0"/>
+  </joint>
+
+  <!-- =========================
+       RGB camera
+       ========================= -->
+  <link name="camera_link">
+    <visual>
+      <geometry><box size="0.045 0.06 0.045"/></geometry>
+      <material name="camera_dark"><color rgba="0.08 0.08 0.08 1"/></material>
+    </visual>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/><child link="camera_link"/>
+    <origin xyz="0.18 0 0.04" rpy="0 0 0"/>
+  </joint>
+
+  <!-- =========================
+       GAZEBO CONTACT/FUNCTIONAL SETTINGS
+       ========================= -->
+  <gazebo reference="left_wheel_link">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>10.0</kd>
+  </gazebo>
+  <gazebo reference="right_wheel_link">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>10.0</kd>
+  </gazebo>
+  <gazebo reference="front_caster_link"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
+  <gazebo reference="rear_caster_link"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
+
+  <gazebo reference="lidar_link">
+    <sensor name="lidar" type="ray">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>8.0</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>180</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159265359</min_angle>
+            <max_angle>3.14159265359</max_angle>
+          </horizontal>
+        </scan>
+        <range><min>0.08</min><max>8.0</max><resolution>0.02</resolution></range>
+        <noise><type>gaussian</type><mean>0.0</mean><stddev>0.005</stddev></noise>
+      </ray>
+      <plugin name="gazebo_ros_laser" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=scan</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>lidar_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <gazebo reference="camera_link">
+    <sensor name="front_camera" type="camera">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>8.0</update_rate>
+      <camera name="front_camera">
+        <horizontal_fov>1.047</horizontal_fov>
+        <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+        <clip><near>0.05</near><far>20.0</far></clip>
+      </camera>
+      <plugin name="gazebo_ros_camera" filename="libgazebo_ros_camera.so">
+        <ros>
+          <remapping>image_raw:=camera/image_raw</remapping>
+          <remapping>camera_info:=camera/camera_info</remapping>
+        </ros>
+        <camera_name>camera</camera_name>
+        <frame_name>camera_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- Critical: this plugin owns odom -> base_footprint. Do not add another broadcaster for it. -->
+  <gazebo>
+    <plugin name="diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <ros>
+        <remapping>cmd_vel:=cmd_vel</remapping>
+        <remapping>odom:=odom</remapping>
+      </ros>
+      <update_rate>20</update_rate>
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>0.30</wheel_separation>
+      <wheel_diameter>0.10</wheel_diameter>
+      <max_wheel_torque>8.0</max_wheel_torque>
+      <max_wheel_acceleration>2.0</max_wheel_acceleration>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>false</publish_wheel_tf>
+      <odometry_source>1</odometry_source>
+    </plugin>
+
+    <!-- ROS 2 Gazebo diff-drive does not publish JointState itself.
+         This lightweight plugin supplies wheel joint positions to robot_state_publisher. -->
+    <plugin name="joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
+      <update_rate>20</update_rate>
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+    </plugin>
+  </gazebo>
+
+</robot>

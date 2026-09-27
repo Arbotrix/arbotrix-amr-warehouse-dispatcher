@@ -1,0 +1,21 @@
+# ROS 2
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code
+.vscode/
+
+# ROS / Gazebo local data
+.ros/
+.gazebo/
+
+# Temporary files
+*.swp
+*.tmp
+.DS_Store
